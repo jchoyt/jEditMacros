@@ -1,0 +1,150 @@
+/*
+ * Recent_Files.bsh - a BeanShell macro script to easily re-open a
+ * recent file.
+ *
+ * This Script is a modification of Buffer_Switcher.bsh, written by
+ * Ollie Rutherfurd. Modified by Jeroen Budts
+ * Copyright (C) 2001-2004 Ollie Rutherfurd, oliver@rutherfurd.net
+ *
+ * :mode=beanshell:tabSize=4:indentSize=4:maxLineLen=0:noTabs=false:
+ * :indentOnTab=true:indentOnEnter=true:folding=explicit:collapseFolds=1:
+ *
+ * {{{ License
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with the jEdit program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * }}}
+ */
+
+import javax.swing.border.EmptyBorder;
+
+
+RecentFilesDialog(doModal)
+{
+
+	// {{{ create dialog
+	//Buffer[] openBuffers = jEdit.getBuffers();
+	BufferHistory.Entry[] recentBuffersArray = BufferHistory.getHistory().toArray(new BufferHistory.Entry[0]);
+	String[] recentBuffers = new String[recentBuffersArray.length];
+	for (int i = 0; i < recentBuffersArray.length; i++) {
+		recentBuffers[i] = recentBuffersArray[i].path;
+	}
+	int numOpen = recentBuffers.length;
+	dialog = new JDialog(view, "" + numOpen + " Recent Buffers", doModal);
+	content = new JPanel(new BorderLayout());
+	content.setBorder(new EmptyBorder(12,12,12,12));
+	dialog.setContentPane(content);
+
+	bufferList = new JList(recentBuffers);
+	bufferList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+	content.add(new JScrollPane(bufferList), BorderLayout.CENTER);
+
+	content.add(new JLabel("[ENTER] open - [SPACE] open, keep dialog"), BorderLayout.NORTH);
+
+	buttonPanel = new JPanel();
+	buttonPanel.setLayout(new BoxLayout(buttonPanel,
+		BoxLayout.X_AXIS));
+
+	buttonPanel.setBorder(new EmptyBorder(12,50,0,50));
+	buttonPanel.add(Box.createGlue());
+	ok = new JButton("OK");
+	close = new JButton("Close");
+	ok.setPreferredSize(close.getPreferredSize());
+	dialog.getRootPane().setDefaultButton(ok);
+	buttonPanel.add(ok);
+	buttonPanel.add(Box.createHorizontalStrut(6));
+	buttonPanel.add(close);
+	buttonPanel.add(Box.createGlue());
+	content.add(buttonPanel, BorderLayout.SOUTH);
+	// }}}
+
+	// {{{ switchBuffer()
+	void switchBuffer()
+	{
+		filename = bufferList.getSelectedValue();
+		if(_buffer == null) {
+			view.getToolkit().beep();
+		} else {
+			//view.getEditPane().setBuffer(_buffer);
+			Log.log(Log.DEBUG, this, filename);
+			jEdit.openFile(view, filename);
+		}
+	}	// }}}
+
+	// {{{ actionPerformed
+	void actionPerformed(evt)
+	{
+		if(evt.getSource() == ok)
+			switchBuffer();
+		dialog.dispose();
+		dialog = null;
+	}	// }}}
+
+	// {{{ KeyListener implementation
+	void keyPressed(evt)
+	{
+		if(evt.getKeyCode() == KeyEvent.VK_ESCAPE)
+			dialog.dispose();
+		else if(evt.getKeyCode() == KeyEvent.VK_SPACE)
+			switchBuffer();
+	}
+
+	void keyReleased(evt)
+	{
+		int selected = bufferList.getSelectedIndex();
+		if(selected > -1)
+			bufferList.ensureIndexIsVisible(selected);
+	}
+
+	void keyTyped(evt){}
+	// }}}
+
+	// {{{ MouseListener implementation
+	void mouseClicked(evt)
+	{
+		if(evt.getClickCount() > 1)
+		{
+			switchBuffer();
+			dialog.dispose();
+		}
+	}
+
+	void mouseEntered(evt){}
+	void mouseExited(evt){}
+	void mousePressed(evt){}
+	void mouseReleased(evt){}
+	// }}}
+
+	// {{{ add listeners
+	dialog.addKeyListener(this);
+	bufferList.addKeyListener(this);
+	bufferList.addMouseListener(this);
+	ok.addActionListener(this);
+	close.addActionListener(this);
+	// }}}
+
+	// {{{ display dialog
+	dialog.pack();
+	bufferList.setSelectedValue(buffer,true);
+	dialog.setLocationRelativeTo(view);
+	dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+	dialog.setVisible(true);
+	// }}}
+
+}
+
+
+// SETTINGS {{{
+doModal = true;
+
+RecentFilesDialog(doModal);

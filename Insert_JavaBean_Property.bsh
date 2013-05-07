@@ -1,0 +1,180 @@
+/**
+ * Insert JavaBean Property macro for jEdit
+ *
+ *@author G. Quintana (gerald dot quintana at caramail dot com)
+ *@version 0.3
+ *@date 9 Nov 2001
+ */
+void insertJavaBeanPropertyDialog() {
+	title = "Insert JavaBean Property";
+	dialog = new JDialog(view, title, false);
+	thisPanel = new JPanel(new BorderLayout(5,5));
+	dialog.setContentPane(thisPanel);
+	// Form
+	formPanel=new JPanel(new GridBagLayout());
+	labelInsets=new Insets(0,0,0,0);
+	textInsets=new Insets(2,2,2,2);
+	formPanel.add(new JLabel("Name"),
+		new GridBagConstraints(0,0,1,1,
+			0.0,0.0,
+			GridBagConstraints.EAST,GridBagConstraints.NONE,
+			labelInsets,0,0));
+	nameText=new JTextField(16); 
+	formPanel.add(nameText,
+		new GridBagConstraints(1,0,GridBagConstraints.REMAINDER,1,
+		1.0,0.0,
+		GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,
+		textInsets,0,0));
+	formPanel.add(new JLabel("Type"),
+		new GridBagConstraints(0,1,1,1,
+		0.0,0.0,
+		GridBagConstraints.EAST,GridBagConstraints.NONE,
+		labelInsets,0,0));
+	typeText=new JTextField(16); 
+	formPanel.add(typeText,
+		new GridBagConstraints(1,1,GridBagConstraints.REMAINDER,1,
+		1.0,0.0,
+		GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,
+		textInsets,0,0));
+	formPanel.add(new JLabel("Attribute"),
+		new GridBagConstraints(0,2,1,1,
+		0.0,0.0,
+		GridBagConstraints.EAST,GridBagConstraints.NONE,
+		labelInsets,0,0));
+	modes=new String[]{"None","Private","Protected","Package","Public"};
+	attModeCombo=new JComboBox(modes);
+	attModeCombo.setSelectedIndex(2);
+	formPanel.add(attModeCombo,
+		new GridBagConstraints(1,2,GridBagConstraints.REMAINDER,1,
+		0.0,0.0,
+		GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,
+		textInsets,0,0));
+	formPanel.add(new JLabel("Getter"),
+		new GridBagConstraints(0,3,1,1,
+		0.0,0.0,
+		GridBagConstraints.EAST,GridBagConstraints.NONE,
+		labelInsets,0,0));
+	getModeCombo=new JComboBox(modes);
+	getModeCombo.setSelectedIndex(4);
+	formPanel.add(getModeCombo,
+		new GridBagConstraints(1,3,GridBagConstraints.REMAINDER,1,
+		0.0,0.0,
+		GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,
+		textInsets,0,0));
+	formPanel.add(new JLabel("Setter"),
+		new GridBagConstraints(0,4,1,1,
+		0.0,0.0,
+		GridBagConstraints.EAST,GridBagConstraints.NONE,
+		labelInsets,0,0));
+	setModeCombo=new JComboBox(modes);
+	setModeCombo.setSelectedIndex(4);
+	formPanel.add(setModeCombo,
+		new GridBagConstraints(1,4,GridBagConstraints.REMAINDER,1,
+		0.0,0.0,
+		GridBagConstraints.CENTER,GridBagConstraints.HORIZONTAL,
+		textInsets,0,0));
+	thisPanel.add(formPanel,BorderLayout.CENTER);
+	// Buttons
+	buttonPanel=new JPanel(new FlowLayout());
+	insertButton=new JButton("Insert"); 
+	insertButton.setName("insert");
+	insertButton.addActionListener(this);
+	buttonPanel.add(insertButton); 
+	okButton=new JButton("OK"); 
+	okButton.setName("ok");
+	okButton.addActionListener(this);
+	buttonPanel.add(okButton);
+	cancelButton=new JButton("Cancel");
+	cancelButton.setName("cancel");
+	cancelButton.addActionListener(this);
+	buttonPanel.add(cancelButton);
+	actionPerformed(e) {
+		name=e.getSource().getName();
+		if ((name.equals("insert"))||(name.equals("ok"))) 
+			insertJavaBeanProperty(nameText.getText(),
+				typeText.getText(),
+				attModeCombo.getSelectedIndex(),
+				getModeCombo.getSelectedIndex(),
+				setModeCombo.getSelectedIndex());
+		if ((name.equals("ok"))||(name.equals("cancel")))
+			dialog.dispose();
+	}
+	thisPanel.add(buttonPanel,BorderLayout.SOUTH);
+	dialog.pack();
+	dialog.setLocationRelativeTo(view);
+	dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+	dialog.setVisible(true);
+}
+void insertJavaBeanProperty(String name, String type,int attMode,int getterMode, int setterMode) {
+	String upd=upFirstChar(name);
+	sb = new StringBuffer();
+	sb.append(endOfLine);
+	modifier=new String[]{null,"private ","protected ","","public "};
+	if (attMode>0) {
+		sb.append(createField(name,upd,type,modifier[attMode]));
+	}
+	if (getterMode>0) {
+		sb.append(createGetter(name,upd,type,modifier[getterMode]));
+	}
+	if (setterMode>0) {
+		sb.append(createSetter(name,upd,type,modifier[setterMode]));
+	}
+	insert=sb.toString();
+	textArea.setSelectedText(insert);
+}
+String createField(String name, String updName, String type, String modifier) {
+	sb = new StringBuffer();
+	sb.append("/**").append(endOfLine);
+	sb.append(" * ").append(updName).append(" property.").append(endOfLine);
+	sb.append(" */").append(endOfLine);
+	defaultVal="null";
+	if (type.equals("boolean")) defaultVal="false";
+	else if (type.equals("byte")) defaultVal="(byte)0";
+	else if ((type.equals("int"))||(type.equals("long"))) defaultVal="0";
+	else if (type.equals("float")) defaultVal="0.0f";
+	else if (type.equals("double")) defaultVal="0.0";
+	sb.append(modifier);
+	sb.append(type).append(' ').append(name).append(" = ").append(defaultVal).append(";").append(endOfLine);
+	sb.append(endOfLine);
+	return sb.toString();
+}
+String createGetter(String name, String updName, String type, String modifier) {
+	sb = new StringBuffer();
+	sb.append("/**").append(endOfLine);
+	sb.append(" * Get ").append(name).append(" property.").append(endOfLine);
+	sb.append(" * ").append(endOfLine);
+	sb.append(" *@return ").append(updName).append(" property.").append(endOfLine);
+	sb.append(" */").append(endOfLine);
+	get="get";
+	if (type.equals("boolean")) get="is";
+	sb.append(modifier).append(type).append(' ').append(get).append(updName)
+		.append("() {").append(endOfLine);
+	sb.append("\treturn this.").append(name).append(";").append(endOfLine);
+	sb.append("}\n");
+	sb.append(endOfLine);
+	return sb.toString();
+}
+String createSetter(String name, String updName, String type,String modifier) {
+	String upd=upFirstChar(name);
+	sb = new StringBuffer();
+	sb.append("/**").append(endOfLine);
+	sb.append(" * Set ").append(name).append(" property.").append(endOfLine);
+	sb.append(" * ").append(endOfLine);
+	sb.append(" *@param ").append(name).append(" New ").append(name).append(" property.").append(endOfLine);
+	sb.append(" */").append(endOfLine);
+	sb.append(modifier);
+	sb.append("void set").append(updName).append('(').append(type).append(' ').append(name).append(") {").append(endOfLine);
+	sb.append("\tthis.").append(name).append(" = ").append(name).append(";").append(endOfLine);
+	sb.append("}").append(endOfLine);
+	sb.append(endOfLine);
+	return sb.toString();
+}
+String upFirstChar(String text) {
+	c=text.toCharArray();
+	c[0]=Character.toUpperCase(c[0]);
+	return new String(c); 
+}
+mainTextArea = textArea;
+insertJavaBeanPropertyDialog();
+endOfLine="\n  ";
+

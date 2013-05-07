@@ -1,0 +1,94 @@
+/*
+ * Add_Logger.bsh - a BeanShell macro script for the
+ * jEdit text editor - Adds an import statement to the beginning
+ * of a Java source file and returns the editingcaret to the starting
+ * location
+ * Copyright (C) 2004 Jeffrey Hoyt
+
+ * doImport() was taken from the Add_Import.bsh macro by Richard Wan,
+ * rwan@palmtreebusiness.com
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with the jEdit program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+
+doImport(tag)
+{
+  buffer.addMarker('i',textArea.getCaretPosition());
+
+  textArea.setCaretPosition(0);
+
+  SearchAndReplace.setSearchString("package");
+  SearchAndReplace.setAutoWrapAround(false);
+  SearchAndReplace.setReverseSearch(false);
+  SearchAndReplace.setIgnoreCase(false);
+  SearchAndReplace.setRegexp(false);
+  SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+  SearchAndReplace.find(view);
+
+  textArea.goToStartOfWhiteSpace(false);
+  textArea.goToNextLine(false);
+  textArea.userInput('\n');
+  textArea.setSelectedText("import "+tag+";");
+  //textArea.userInput('\n');
+
+  editPane.goToMarker('i',false);
+  buffer.removeMarker( textArea.getCaretLine() );
+}
+
+getClassName()
+{
+  String name = buffer.getName().substring(0, buffer.getName().length() - 5);
+  return name;
+}
+
+
+doLogger()
+{
+  buffer.addMarker('i',textArea.getCaretPosition());
+
+  textArea.setCaretPosition(0);
+
+  SearchAndReplace.setSearchString("{");
+  SearchAndReplace.setAutoWrapAround(false);
+  SearchAndReplace.setReverseSearch(false);
+  SearchAndReplace.setIgnoreCase(false);
+  SearchAndReplace.setRegexp(false);
+  SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+  SearchAndReplace.find(view);
+
+  textArea.goToStartOfWhiteSpace(false);
+  textArea.goToNextLine(false);
+  textArea.userInput('\n');
+  textArea.setSelectedText( "    //{{{ Logger");
+  textArea.userInput('\n');
+  textArea.setSelectedText( "    public final static String KEY = " + getClassName() + ".class.getName();" );
+  textArea.userInput('\n');
+  textArea.setSelectedText( "    public final static Logger log = Logger.getLogger( KEY );" );
+  textArea.userInput('\n');
+  textArea.setSelectedText( "    static{log.setLevel(Level.FINER);}" );
+  textArea.userInput('\n');
+  textArea.setSelectedText( "    //}}}");
+  textArea.userInput('\n');
+  editPane.goToMarker('i',false);
+  buffer.removeMarker( textArea.getCaretLine() );
+}
+
+
+
+/* main procedure */
+doImport("java.util.logging.Logger");
+doImport("java.util.logging.Level");
+textArea.userInput('\n');
+doLogger();

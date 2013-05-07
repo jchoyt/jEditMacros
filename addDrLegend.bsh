@@ -1,0 +1,27 @@
+// This is a recorded macro. First, check over the
+// commands to make sure this is what you intended. Then,
+// save this buffer, and the macro should appear in the
+// Macros menu.
+String legend = "/*\n" +
+                " *  Copyright (C) 2007 The MITRE Corporation.  All rights reserved.\n" +
+                " *\n" +
+                " *  MRALD is released under the license specified in the file\n" +
+                " *  mrald_license.txt supplied with this file.  If you cannot find this\n" +
+                " *  file, contact The MITRE Technology Transfer Office at techtransfer@mitre.org\n" +
+                " *  or at http://www.mitre.org/work/tech_transfer/\n" +
+                " */\n\n";
+
+
+BufferedReader reader = new BufferedReader(new FileReader("/home/jchoyt/devel/mrald/mrald/src/files.txt"));
+while ( (record=reader.readLine()) != null )
+{
+    b2 = jEdit.openFile(view, record);
+    textArea.setBuffer(b2);
+    textArea.setCaretPosition(0);
+    textArea.setSelectedText(legend);
+    //Registers.paste(textArea,'$',false);
+    b2.save(view,null,true);
+    jEdit.closeBuffer(view,b2);
+    // Thread.sleep(100);
+}
+

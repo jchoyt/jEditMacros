@@ -1,0 +1,414 @@
+/**
+Sort_Lines.bsh - a BeanShell macro for the jEdit text editor which is
+able to sort lines in ascending/descending order.
+
+Available options are
+ - Remove duplicated lines
+ - Ignore case sorting
+ 
+To do
+ - Numerical sorting
+
+Copyright (C)  2004 Pascal Dal Farra - pdfneuro@yahoo.fr
+Version 1.0
+
+This macro work on the complete buffer (line selection is not handled)
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+*/
+
+////////////////////////////////////////////////////////////////////////////////
+//	variables
+////////////////////////////////////////////////////////////////////////////////
+
+	boolean ascendingOrder   = true;
+	boolean removeDuplicate  = false;
+	boolean ignoreCase       = false;
+	boolean numericalSorting = false;
+	Comparator lineComparator = null;
+
+
+////////////////////////////////////////////////////////////////////////////////
+//	UI variables
+////////////////////////////////////////////////////////////////////////////////
+
+	JPanel          contentPane                 = null;
+	JButton         sortJButton                 = null;
+	JButton         cancelJButton               = null;
+	JPanel          sortingOrderPanel           = null;
+	JRadioButton    ascendingSortJRadioButton   = null;
+	JRadioButton    descendingSortJRadioButton  = null;
+	JLabel          sortingOrderLabel           = null;
+	JPanel          sortingOptionsPanel         = null;
+	JCheckBox       removeDuplicateJCheckBox    = null;
+	JCheckBox       ignoreCaseJCheckBox         = null;
+	JCheckBox       numericalSortingJCheckBox   = null;
+	
+	javax.swing.border.EtchedBorder etchedBorder = new javax.swing.border.EtchedBorder();
+
+////////////////////////////////////////////////////////////////////////////////
+//	UI methods
+////////////////////////////////////////////////////////////////////////////////
+
+	private javax.swing.JPanel getContentPane() {
+		if(contentPane == null) {
+			GridBagConstraints gridBagConstraints5 = new GridBagConstraints();
+			GridBagConstraints gridBagConstraints1 = new GridBagConstraints();
+			contentPane = new javax.swing.JPanel();
+			contentPane.setLayout(new GridBagLayout());
+			GridBagConstraints gridBagConstraints4 = new GridBagConstraints();
+			gridBagConstraints4.gridx = 1;
+			gridBagConstraints4.gridy = 1;
+			gridBagConstraints4.insets = new java.awt.Insets(0,5,5,5);
+			gridBagConstraints4.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			GridBagConstraints gridBagConstraints3 = new GridBagConstraints();
+			gridBagConstraints3.gridx = 1;
+			gridBagConstraints3.gridy = 0;
+			gridBagConstraints3.weightx = 1.0D;
+			gridBagConstraints3.weighty = 1.0D;
+			gridBagConstraints3.gridwidth = 1;
+			gridBagConstraints3.insets = new java.awt.Insets(5,5,5,5);
+			gridBagConstraints3.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			gridBagConstraints3.anchor = java.awt.GridBagConstraints.SOUTH;
+			gridBagConstraints1.gridx = 0;
+			gridBagConstraints1.gridy = 0;
+			gridBagConstraints1.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			gridBagConstraints1.insets = new java.awt.Insets(5,5,5,5);
+			gridBagConstraints1.gridheight = 2;
+			gridBagConstraints1.weightx = 2.0D;
+			gridBagConstraints1.weighty = 1.0D;
+			gridBagConstraints4.weightx = 1.0D;
+			gridBagConstraints4.weighty = 1.0D;
+			gridBagConstraints4.anchor = java.awt.GridBagConstraints.NORTH;
+			gridBagConstraints5.gridx = 0;
+			gridBagConstraints5.gridy = 2;
+			gridBagConstraints5.gridwidth = 2;
+			gridBagConstraints5.fill = java.awt.GridBagConstraints.BOTH;
+			gridBagConstraints5.insets = new java.awt.Insets(0,5,5,5);
+			contentPane.setName("mainPanel");
+			contentPane.add(getCancelJButton(), gridBagConstraints4);
+			contentPane.add(getSortJButton(), gridBagConstraints3);
+			contentPane.add(getSortingOrderPanel(), gridBagConstraints1);
+			contentPane.add(getSortingOptionsPanel(), gridBagConstraints5);
+		}
+		return contentPane;
+	}
+
+	private JButton getSortJButton() {
+		if (sortJButton == null) {
+			sortJButton = new JButton();
+			sortJButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+			sortJButton.setText("Sort");
+			sortJButton.setVerticalTextPosition(javax.swing.SwingConstants.CENTER);
+			sortJButton.setVerticalAlignment(javax.swing.SwingConstants.BOTTOM);
+		}
+		return sortJButton;
+	}
+
+	private JButton getCancelJButton() {
+		if (cancelJButton == null) {
+			cancelJButton = new JButton();
+			cancelJButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+			cancelJButton.setText("Cancel");
+			cancelJButton.setVerticalAlignment(javax.swing.SwingConstants.TOP);
+		}
+		return cancelJButton;
+	}
+
+	private JPanel getSortingOrderPanel() {
+		if (sortingOrderPanel == null) {
+			sortingOrderLabel = new JLabel();
+			GridBagConstraints gridBagConstraints31 = new GridBagConstraints();
+			GridBagConstraints gridBagConstraints2 = new GridBagConstraints();
+			GridBagConstraints gridBagConstraints41 = new GridBagConstraints();
+			sortingOrderPanel = new JPanel();
+			sortingOrderPanel.setLayout(new GridBagLayout());
+			gridBagConstraints2.gridx = 0;
+			gridBagConstraints2.gridy = 1;
+			gridBagConstraints2.insets = new java.awt.Insets(5,5,5,5);
+			gridBagConstraints2.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			gridBagConstraints31.gridx = 0;
+			gridBagConstraints31.gridy = 2;
+			gridBagConstraints31.insets = new java.awt.Insets(5,5,5,5);
+			gridBagConstraints31.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			gridBagConstraints41.gridx = 0;
+			gridBagConstraints41.gridy = 0;
+			gridBagConstraints41.insets = new java.awt.Insets(5,5,5,5);
+			gridBagConstraints41.fill = java.awt.GridBagConstraints.BOTH;
+			sortingOrderLabel.setText("Sorting order");
+			sortingOrderLabel.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+			sortingOrderLabel.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+			sortingOrderPanel.setName("sortingOrderPanel");
+			sortingOrderPanel.add(getAscendingSortJRadioButton(), gridBagConstraints2);
+			sortingOrderPanel.add(getDescendingSortJRadioButton(), gridBagConstraints31);
+			ButtonGroup group = new ButtonGroup();
+			group.add(getAscendingSortJRadioButton());
+			group.add(getDescendingSortJRadioButton());
+			getAscendingSortJRadioButton().setSelected(true);
+			sortingOrderPanel.add(sortingOrderLabel, gridBagConstraints41);
+			sortingOrderPanel.setBorder(etchedBorder);
+		}
+		return sortingOrderPanel;
+	}
+
+	private JRadioButton getAscendingSortJRadioButton() {
+		if (ascendingSortJRadioButton == null) {
+			ascendingSortJRadioButton = new JRadioButton();
+			ascendingSortJRadioButton.setText("Ascending");
+			ascendingSortJRadioButton.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+			ascendingSortJRadioButton.setHorizontalTextPosition(javax.swing.SwingConstants.TRAILING);
+		}
+		return ascendingSortJRadioButton;
+	}
+
+	private JRadioButton getDescendingSortJRadioButton() {
+		if (descendingSortJRadioButton == null) {
+			descendingSortJRadioButton = new JRadioButton();
+			descendingSortJRadioButton.setText("Descending");
+			descendingSortJRadioButton.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+		}
+		return descendingSortJRadioButton;
+	}
+
+	private JPanel getSortingOptionsPanel() {
+		if (sortingOptionsPanel == null) {
+			GridBagConstraints gridBagConstraints6 = new GridBagConstraints();
+			GridBagConstraints gridBagConstraints7 = new GridBagConstraints();
+			GridBagConstraints gridBagConstraints8 = new GridBagConstraints();
+			sortingOptionsPanel = new JPanel();
+			sortingOptionsPanel.setLayout(new GridBagLayout());
+			gridBagConstraints6.gridx = 0;
+			gridBagConstraints6.gridy = 0;
+			gridBagConstraints6.insets = new java.awt.Insets(5,5,5,5);
+			gridBagConstraints6.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			gridBagConstraints7.gridx = 0;
+			gridBagConstraints7.gridy = 1;
+			gridBagConstraints7.insets = new java.awt.Insets(0,5,5,5);
+			gridBagConstraints7.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			gridBagConstraints8.gridx = 0;
+			gridBagConstraints8.gridy = 2;
+			gridBagConstraints8.insets = new java.awt.Insets(0,5,5,5);
+			gridBagConstraints8.fill = java.awt.GridBagConstraints.HORIZONTAL;
+			sortingOptionsPanel.setName("sortingOptionsPanel");
+			sortingOptionsPanel.add(getRemoveDuplicateJCheckBox(), gridBagConstraints6);
+			sortingOptionsPanel.add(getIgnoreCaseJCheckBox(), gridBagConstraints7);
+//			sortingOptionsPanel.add(getNumericalSortingJCheckBox(), gridBagConstraints8);
+			sortingOptionsPanel.setBorder(etchedBorder);
+		}
+		return sortingOptionsPanel;
+	}
+
+	private JCheckBox getRemoveDuplicateJCheckBox() {
+		if (removeDuplicateJCheckBox == null) {
+			removeDuplicateJCheckBox = new JCheckBox();
+			removeDuplicateJCheckBox.setHorizontalAlignment(javax.swing.SwingConstants.LEFT);
+			removeDuplicateJCheckBox.setText("Remove duplicate lines");
+		}
+		return removeDuplicateJCheckBox;
+	}
+
+	private JCheckBox getIgnoreCaseJCheckBox() {
+		if (ignoreCaseJCheckBox == null) {
+			ignoreCaseJCheckBox = new JCheckBox();
+			ignoreCaseJCheckBox.setText("Ignore case");
+		}
+		return ignoreCaseJCheckBox;
+	}
+
+	private JCheckBox getNumericalSortingJCheckBox() {
+		if (numericalSortingJCheckBox == null) {
+			numericalSortingJCheckBox = new JCheckBox();
+			numericalSortingJCheckBox.setText("Numerical sorting");
+		}
+		return numericalSortingJCheckBox;
+	}
+	
+	void displaySortDialogBox()
+	{
+		String title = "Sort";
+		JDialog dialog = new JDialog(view, title, false);
+		dialog.setContentPane(getContentPane());
+		
+		actionPerformed(ActionEvent e){
+			if(e.getSource() == sortJButton){
+				if(ascendingSortJRadioButton.isSelected())
+					ascendingOrder = true;
+				else // if(descendingSortJRadioButton.isSelected())
+					ascendingOrder = false;
+				
+				removeDuplicate  = removeDuplicateJCheckBox.isSelected();
+				ignoreCase       = ignoreCaseJCheckBox.isSelected();
+//				numericalSorting = numericalSortingJCheckBox.isSelected();
+				
+				//	Creating line comparator
+				if(ignoreCase){ // create an ignoreCase String Comparator
+					lineComparator = new Comparator(){
+						public int compare(Object o1, Object o2){
+							String str1 = (String) o1;
+							String str2 = (String) o2;
+							return str1.compareToIgnoreCase(str2);
+						}
+						public boolean equals(Object obj){
+							String str1 = (String) o1;
+							String str2 = (String) o2;
+							return str1.equalsIgnoreCase(str2);
+						}
+					};
+				}
+				else{	// using string natural ordering
+					lineComparator = null;
+/*					lineComparator = new Comparator(){
+						public int compare(Object o1, Object o2){
+							String str1 = (String) o1;
+							String str2 = (String) o2;
+							return str1.compareTo(str2);
+						}
+						public boolean equals(Object obj){
+							String str1 = (String) o1;
+							String str2 = (String) o2;
+							return str1.equals(str2);
+						}
+					};*/
+				}
+				//	Line comparator created
+					
+				if(removeDuplicate)
+					sortRemoveDuplicated();
+				else
+					sort();
+				textArea.setCaretPosition(0);
+			}
+			dialog.dispose();
+			return;
+		}
+		
+		sortJButton.addActionListener(this);
+		cancelJButton.addActionListener(this);
+
+  		dialog.pack();
+		dialog.setLocationRelativeTo(view);
+		dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+		dialog.setResizable(false);
+		dialog.setVisible(true);
+		sortJButton.requestFocus();
+	}
+
+////////////////////////////////////////////////////////////////////////////////
+//	process methods
+////////////////////////////////////////////////////////////////////////////////
+
+	void sortRemoveDuplicated(){
+		try{
+			buffer.beginCompoundEdit();
+			textArea.setCaretPosition(0);
+			
+			//	fetch lines in TreeSet (which will sort them and remove duplicated lines)
+			TreeSet lines;
+			if(lineComparator==null) // used to remove duplicates lines
+				lines = new TreeSet();
+			else
+				lines = new TreeSet(lineComparator);
+			
+			while(textArea.getCaretLine()+1 < buffer.getLineCount() ){
+				textArea.selectLine();
+				String selectedLine = textArea.getSelectedText();
+				textArea.deleteLine();
+				if (selectedLine == null)
+					selectedLine = "";
+				lines.add(selectedLine);
+			}
+			
+			//	then insert them in the buffer
+			if(ascendingOrder){
+				int offset = 0;
+				int lineNumber = 0;
+				for(Iterator it = lines.iterator(); it.hasNext();){
+					String line = (String)it.next()+"\n";
+					buffer.insert(offset, line);
+					offset = buffer.getLineEndOffset(lineNumber++);
+				}
+			}else{
+				for(Iterator it = lines.iterator(); it.hasNext();){
+					String line = (String)it.next()+"\n";
+					buffer.insert(0, line);
+				}
+			}
+		}
+		finally{
+			if(buffer.insideCompoundEdit())
+				buffer.endCompoundEdit();
+		}
+	}
+	
+	void sort(){
+		try{
+			buffer.beginCompoundEdit();
+			textArea.setCaretPosition(0);
+			
+			//	fetch lines in TreeMap (which will sort them and count line occurences)
+			TreeMap lines;
+			if(lineComparator==null)
+				lines = new TreeMap();
+			else
+				lines = new TreeMap(lineComparator);
+			while(textArea.getCaretLine()+1 < buffer.getLineCount() ){
+				textArea.selectLine();
+				String selectedLine = textArea.getSelectedText();
+				textArea.deleteLine();
+				if (selectedLine == null)
+					selectedLine = "";
+				//	put line (possibly update line count
+				Object previousValue = lines.get(selectedLine);
+				if(previousValue==null){
+					lines.put(selectedLine, "1");
+				}else{
+					int lineCount = Integer.parseInt((String)previousValue); lineCount++;
+					lines.put(selectedLine, ""+lineCount);
+				}
+			}
+
+			//	then insert them in the buffer
+			if(ascendingOrder){
+				int offset = 0;
+				int lineNumber = 0;
+				for(Iterator it = lines.keySet().iterator(); it.hasNext();){
+					String line = (String)it.next();
+					int lineCount = Integer.parseInt((String)lines.get(line));
+					line +="\n";
+					for(int i=0; i<lineCount; i++){
+						buffer.insert(offset, line);
+						offset = buffer.getLineEndOffset(lineNumber++);
+					}
+				}
+			}else{
+				for(Iterator it = lines.keySet().iterator(); it.hasNext();){
+					String line = (String)it.next();
+					int lineCount = Integer.parseInt((String)lines.get(line));
+					line +="\n";
+					for(int i=0; i<lineCount; i++)
+						buffer.insert(0, line);
+				}
+			}
+		}
+		finally{
+			if(buffer.insideCompoundEdit())
+				buffer.endCompoundEdit();
+		}
+	}
+	
+////////////////////////////////////////////////////////////////////////////////
+//	"main"
+////////////////////////////////////////////////////////////////////////////////
+
+	if( buffer.isReadOnly() )
+		Macros.error( view, "Buffer is read-only." );
+	else
+		displaySortDialogBox();	

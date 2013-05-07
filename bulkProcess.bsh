@@ -1,0 +1,116 @@
+/*
+ * :mode=beanshell:tabSize=2:indentSize=2:noTabs=true:
+ * :folding=indent:collapseFolds=0:wrap=none:maxLineLen=80:
+ *
+ * $Source$
+ * Copyright (C) 2004 Jeffrey C. Hoyt
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+
+
+import java.util.*;
+
+checkDirectoryExists()
+{
+    if(startDir==null) return false;
+    File dir = new File(startDir);
+    return dir.exists() && dir.isDirectory();
+}
+
+checkHtmlExists(String fileName)
+{
+    if (fileName.length() < 5) return false;
+    if (fileName.substring( fileName.length() - 5, fileName.length()).equals(".html")) return true;
+    if(fileName==null) return false;
+    File htmlFile = new File(fileName + ".html" );
+    return htmlFile.exists();
+}
+
+descendToTheDepths(String fromHere)
+{
+    //closeAllBuffers();
+    File current = new File(fromHere);
+    int j=0;
+    File[] listing = current.listFiles();
+    for( int i=0; i<listing.length; i++)
+    {
+        if(listing[i].isDirectory())
+        {
+           descendToTheDepths(listing[i].getAbsolutePath());
+           System.gc();  // bad practice...
+        }
+        else
+        {
+          // see if we must force any garbage collection
+          if (j++>50)
+          {
+             System.gc();  // bad practice...
+             j=0;
+          }
+
+          // see if the html version already exists
+          if (!checkHtmlExists( listing[i].getAbsolutePath()))
+          {
+            // open a new buffer
+            Buffer buff = jEdit.openFile(view, listing[i].getAbsolutePath());
+
+            // Convert it to HTML
+            code2html.Code2HTML c2h = new code2html.Code2HTML(view.getTextArea(), false);
+
+            VFSManager.waitForRequests();
+            c2h.toHTML(view);
+
+            //Save the new buffer
+            view.getBuffer().save(view, listing[i].getAbsolutePath() + ".html");
+
+            //close the buffer we just saved
+            jEdit._closeBuffer(view, view.getBuffer());
+
+            // close the file we just processed
+            jEdit._closeBuffer(view, buff);
+          }
+
+        }
+    }
+}
+
+ArrayList toProcess = new ArrayList();
+
+String startDir = Macros.input(view,
+    "Specify the directory from which you want to do the bulk conversion.  Example:\n" +
+    "/devel/jchoyt/jedit/src.",
+    "y:/av/doc/code");
+
+if (!checkDirectoryExists())
+{
+    throw new RuntimeException(startDir +" does not exist");
+}
+
+descendToTheDepths(startDir);
+
+/*
+    String ext = fileName.substring( fileName.length() - 5, fileName.length() );
+    Macros.message(view, "[" + ext + "]"  );
+    if ( ext.equals(".html")) {
+      Macros.message(view, "yep"  );
+      return true;
+    }
+    else
+    {
+      Macros.message(view, "nope"  );
+    }
+    Macros.message(view, "it giet oan");
+*/

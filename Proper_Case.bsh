@@ -1,0 +1,40 @@
+/*
+* Proper_Case.bsh - a BeanShell macro for jEdit
+* which converts the selected text to Proper Case.
+*
+* Copyright (C) 2004 Jonathan broome <jonathan@broome.us>
+*
+*/
+
+properCase(){
+	selection = textArea.getSelectedText();
+	String tgt=selection;
+	StringBuffer s=new StringBuffer(tgt.toLowerCase());
+	boolean raise=true;
+	for(int i=0; i<s.length(); ++i)
+	{   if(raise && !Character.isSpace(s.charAt(i)))
+	    {   s.setCharAt(i,Character.toUpperCase(s.charAt(i)));
+		raise=false;
+	    }
+	    else if(!raise && Character.isSpace(s.charAt(i)))
+	    {   raise=true;
+	    }
+	}
+	String ns=new String(s);
+	textArea.setSelectedText(ns);
+}
+
+properCase();
+
+/*
+	Macro index data (in DocBook format)
+
+<listitem>
+	<para><filename>Proper_Case.bsh</filename>
+	<abstract><para>
+		If text is selected, the selection is replaced with
+		the Proper Case Version Of That Text.
+	</para></abstract>
+</listitem>
+
+*/

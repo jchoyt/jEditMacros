@@ -1,0 +1,59 @@
+// This is a recorded macro. First, check over the
+// commands to make sure this is what you intended. Then,
+// save this buffer, and the macro should appear in the
+// Macros menu.
+
+// This is a recorded macro. First, check over the
+// commands to make sure this is what you intended. Then,
+// save this buffer, and the macro should appear in the
+// Macros menu.
+
+// get rid of numbering and  add "place_$_name=" to the begninning
+SearchAndReplace.setSearchString(".*\\) ");
+SearchAndReplace.setReplaceString("place_XX_name=");
+SearchAndReplace.setBeanShellReplace(false);
+SearchAndReplace.setIgnoreCase(false);
+SearchAndReplace.setRegexp(true);
+SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+SearchAndReplace.replaceAll(view);
+
+// add value line and marker for later line split
+SearchAndReplace.setSearchString("\\t");
+SearchAndReplace.setReplaceString("|place_YY_value=");
+SearchAndReplace.setBeanShellReplace(false);
+SearchAndReplace.setIgnoreCase(false);
+SearchAndReplace.setRegexp(true);
+SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+SearchAndReplace.replaceAll(view);
+
+//add "|" to the end of each line
+SearchAndReplace.setSearchString("\\s*$");
+SearchAndReplace.setReplaceString("|");
+SearchAndReplace.setBeanShellReplace(false);
+SearchAndReplace.setIgnoreCase(false);
+SearchAndReplace.setRegexp(true);
+SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+SearchAndReplace.replaceAll(view);
+
+// replace the number holders
+x=1;
+textArea.selectAll();
+SearchAndReplace.setSearchString("XX");
+SearchAndReplace.setReplaceString("x++");
+SearchAndReplace.setBeanShellReplace(true);
+SearchAndReplace.setIgnoreCase(false);
+SearchAndReplace.setRegexp(true);
+SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+SearchAndReplace.replaceAll(view);
+
+y=1;
+textArea.selectAll();
+SearchAndReplace.setSearchString("YY");
+SearchAndReplace.setReplaceString("y++");
+SearchAndReplace.setBeanShellReplace(true);
+SearchAndReplace.setIgnoreCase(false);
+SearchAndReplace.setRegexp(true);
+SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+SearchAndReplace.replaceAll(view);
+
+

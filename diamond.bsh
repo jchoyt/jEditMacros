@@ -1,0 +1,17 @@
+int size = 30;
+StringBuilder ret = new StringBuilder();
+for(i=0;i<size;i++)
+{
+    for(j=0;j<size;j++)
+    {
+        if( (i < size/2 && Math.abs(size/2 - j) <  i + 2) || (i >= size/2 && Math.abs(size/2 - j) <  size + 1 - i ) )
+        {
+            ret.append( 1 );
+        }
+        else ret.append( 0 );
+
+    }
+    ret.append( "\n" );
+}
+    newbuf = jEdit.newFile(view);
+    newbuf.insert(0, ret.toString());

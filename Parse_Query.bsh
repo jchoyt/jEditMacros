@@ -1,0 +1,51 @@
+/**
+ * :mode=beanshell:tabSize=8:indentSize=8:noTabs=false:
+ * :folding=none:collapseFolds=0:wrap=none:maxLineLen=80:
+ *
+ * $Source$
+ * Copyright (C) 2005 Jeffrey Hoyt
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * 
+ * This macro will paste the contents of the clipboard into a new buffer and 
+ * break out the queries in the contents to make them easier to read. So copying:
+ 
+SELECT DISTINCT allstar.playerid, allstar.yearid, allstar.lgid From allstar; Execute time: 0.235 s.;
+SELECT DISTINCT allstar.playerid, allstar.yearid, allstar.lgid From allstar Where ( allstar.yearid = '1990' OR allstar.lgid = '1990' ); Execute time: 0.016 s.;
+
+ * and executing this macro will create a new buffer with this in it:
+
+SELECT DISTINCT allstar.playerid, allstar.yearid, allstar.lgid 
+	From allstar; Execute time: 0.235 s.;
+SELECT DISTINCT allstar.playerid, allstar.yearid, allstar.lgid 
+	From allstar 
+	Where ( allstar.yearid = '1990' 
+	OR allstar.lgid = '1990' ); Execute time: 0.016 s.;
+ * 
+ * Jeffrey Hoyt (jchoyt@users.sourceforge.net)
+ * 
+ */
+
+jEdit.newFile(view);
+Registers.paste(textArea,'$',false);
+
+SearchAndReplace.setSearchString("\\b(AND|WHERE|FROM|OR)\\b");
+SearchAndReplace.setReplaceString("\\n\\t$1");
+SearchAndReplace.setBeanShellReplace(false);
+SearchAndReplace.setIgnoreCase(true);
+SearchAndReplace.setRegexp(true);
+SearchAndReplace.setSearchFileSet(new CurrentBufferSet());
+SearchAndReplace.replaceAll(view);
+

@@ -1,0 +1,128 @@
+/*
+HTML Taskbar macro by jerome.mutterer at ibmp-ulp.u-strasbg.fr 
+Was designed to illustrate creation of a custom button taskbar
+Customize existing buttons, or add new buttons as you like.
+*/
+
+void taskbar()
+{
+    // create dialog object and set its features
+    dialog = new JDialog();
+    content = new JPanel(new BorderLayout());
+    dialog.setContentPane(content);
+    buttonPanel = new JPanel(new GridLayout(12, 1));
+    buttonPanel.add(new JLabel("HTML"));
+    
+    f1 = new JButton("New");
+    f2 = new JButton("Table");
+    f3 = new JButton("Row");
+    f4 = new JButton("Cell");
+    f5 = new JButton("u-List");
+    f6 = new JButton("o-List");
+    f7 = new JButton("Image");
+    f8 = new JButton("Link");
+    f9 = new JButton("php");
+        
+    buttonPanel.add(f1);
+    buttonPanel.add(f2);
+    buttonPanel.add(f3);
+    buttonPanel.add(f4);
+    buttonPanel.add(f5);
+    buttonPanel.add(f6);
+    buttonPanel.add(f7);
+    buttonPanel.add(f8);
+    buttonPanel.add(f9);
+  
+    content.add(buttonPanel, "South");
+
+    // add ActionListeners 
+    
+    f1.addActionListener(this);
+    f2.addActionListener(this);
+    f3.addActionListener(this);
+    f4.addActionListener(this);
+    f5.addActionListener(this);
+    f6.addActionListener(this);
+    f7.addActionListener(this);
+    f8.addActionListener(this);
+    f9.addActionListener(this);
+
+ 
+    dialog.pack();
+    dialog.setLocationRelativeTo(view);
+    dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+    dialog.setVisible(true);
+    
+    void actionPerformed(e) {
+	    
+        if (e.getSource() == f1) newhtml();
+        if (e.getSource() == f2) newtable();
+        if (e.getSource() == f3) newrow();
+        if (e.getSource() == f4) newcell();
+        if (e.getSource() == f5) newul();
+        if (e.getSource() == f6) newol();
+        if (e.getSource() == f7) newimage();
+        if (e.getSource() == f8) newlink();
+        if (e.getSource() == f9) newphpsection();
+        
+    }
+
+    // below are listed all the functions
+    
+    void newhtml()
+    {
+        jEdit.newFile(view);
+	textArea.setSelectedText("<HTML>\n\n<TITLE>New Page</TITLE>\n\n<BODY>\n\n</BODY>\n</HTML>");
+	textArea.goToPrevLine(false);
+	textArea.goToPrevLine(false);
+    }
+    
+    void newtable()
+    {
+        textArea.setSelectedText("<TABLE border=1>\n\t<TR>\n\t<TD></TD><TD></TD>\n\t</TR>\n\t<TR>\n\t<TD></TD><TD></TD>\n\t</TR>\n</TABLE>");
+    }
+    
+    void newrow()
+    {
+        textArea.setSelectedText("<TR>\n</TR>");
+    }
+    
+    void newcell()
+    {
+        textArea.setSelectedText("<TD></TD>");
+    }
+    
+    void newul()
+    {
+        textArea.setSelectedText("<UL>\n\t<LI>\n\t<LI>\n\t<LI>\n</UL>");
+    }
+    
+    void newol()
+    {
+        textArea.setSelectedText("<OL>\n\t<LI>\n\t<LI>\n\t<LI>\n</OL>");
+    }
+        
+    void newimage()
+    {
+        textArea.setSelectedText("<IMG src=\"\">");
+    }
+    
+    void newlink()
+    {
+        textArea.setSelectedText("<A href=\"\"></A>");
+    }
+    
+    
+    void newphpsection()
+    {
+        textArea.setSelectedText("<?php\n\n?>\n");
+    }
+    
+    
+}
+
+// this single line of code is the script's main routine
+// it calls the methods and exits
+
+taskbar();
+

@@ -1,0 +1,640 @@
+/*
+ * :mode=beanshell:tabSize=4:indentSize=4:noTabs=false:
+ * :folding=explicit:collapseFolds=1:wrap=none:maxLineLen=80:
+ *
+ * $Source$
+ * Copyright (C) 2003 Robert Fletcher
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+//{{{ imports
+import java.text.MessageFormat;
+import java.util.List;
+import java.util.ArrayList;
+import gnu.regexp.RE;
+import gnu.regexp.REMatch;
+import org.gjt.sp.util.Log;
+//}}}
+
+//{{{ regexp components
+final String LETTER = "[:alpha:]_\\.";
+final String DIGIT = "[:digit:]";
+final String LETTER_OR_DIGIT = LETTER + DIGIT;
+final String IDENTIFIER = "(["+LETTER+"]["+LETTER_OR_DIGIT+"]*)";
+final String NO_SAVE_IDENTIFIER = "(?:["+LETTER+"]["+LETTER_OR_DIGIT+"]*)";
+final String IDENTIFIER_LIST = "("+NO_SAVE_IDENTIFIER+"[[:space:]]*(?:,[[:space:]]*"+NO_SAVE_IDENTIFIER+"[[:space:]]*)*)";
+final String TYPE = "(["+LETTER+"]["+LETTER_OR_DIGIT+"]*(?:\\[\\])*)";
+final String NO_SAVE_TYPE = "(?:["+LETTER+"]["+LETTER_OR_DIGIT+"]*(?:\\[\\])*)";
+final String MODIFIER = "(?:abstract|final|native|static|synchronized|transient|volatile)";
+final String MODIFIER_LIST = "((?:"+MODIFIER+"[[:space:]]*)*)";
+final String PARAM_LIST = "[[:space:]]*("+NO_SAVE_TYPE+"[[:space:]]+"+NO_SAVE_IDENTIFIER+"[[:space:]]*(?:,[[:space:]]*"+NO_SAVE_TYPE+"[[:space:]]+"+NO_SAVE_IDENTIFIER+"[[:space:]]*)*)?[[:space:]]*";
+final String VISIBILITY = "(private|protected|public)";
+final String JAVADOC = "(?:/\\*{2}.*?\\*/[[:space:]]*)";
+//}}}
+
+//{{{ other variables
+/**
+ * pattern for folds around methods / constructors.
+ * 0 = leading whitespace
+ * 1 = visibility symbol
+ * 2 = method name
+ * 3 = param type list
+ * 4 = return type
+ * 5 = static/abstract symbol
+ */
+final MessageFormat METHOD_FOLD_FORMAT = new MessageFormat("{0}//'\u007b\u007b\u007b' {1}{5}{2}({3}){5} : {4}\n");
+
+/**
+ * pattern for folds around classes.
+ * 0 = leading whitespace
+ * 1 = visibility symbol
+ * 2 = class/interface
+ * 3 = class name
+ * 4 = static/abstract symbol
+ */
+final MessageFormat CLASS_FOLD_FORMAT = new MessageFormat("{0}//'\u007b\u007b\u007b' {1}{2} {4}{3}{4}\n");
+
+final MessageFormat STATIC_INIT_FOLD_FORMAT = new MessageFormat("{0}//'\u007b\u007b\u007b' <clinit>\n");
+
+final String CLOSE_FOLD = "//\u007d\u007d\u007d";
+//}}}
+
+//{{{ regexps
+/**
+ * Saved subexpressions are:
+ * 1 = visibility
+ * 2 = modifiers (space separated)
+ * 3 = class/interface
+ * 4 = class name
+ * 5 = superclass
+ * 6 = implemented interfaces (comma separated)
+ */
+final RE FIND_CLASS_REGEXP = new RE(
+	JAVADOC + "?" + VISIBILITY + "[[:space:]]+" + MODIFIER_LIST +
+	"(class|interface)[[:space:]]+" + IDENTIFIER +
+	"[[:space:]]*(?:extends[[:space:]]+" + IDENTIFIER +
+	")?[[:space:]]*(?:implements[[:space:]]+" + IDENTIFIER_LIST + ")?\\{",
+	RE.REG_DOT_NEWLINE | RE.REG_MULTILINE, RESearchMatcher.RE_SYNTAX_JEDIT);
+
+/**
+ * Saved subexpressions are:
+ * 1 = visibility
+ * 2 = modifiers (space separated)
+ * 3 = return type
+ * 4 = method name
+ * 5 = parameter list (comma separated)
+ * 6 = exception list (comma separated)
+ */
+final RE FIND_METHOD_REGEXP = new RE(
+	JAVADOC + "?" + VISIBILITY + "[[:space:]]+" + MODIFIER_LIST + TYPE +
+	"[[:space:]]+" + IDENTIFIER + "[[:space:]]*\\(" + PARAM_LIST +
+	"\\)[[:space:]]*(?:throws[[:space:]]+" + IDENTIFIER_LIST + ")?(?:\\{|;)",
+	RE.REG_DOT_NEWLINE | RE.REG_MULTILINE, RESearchMatcher.RE_SYNTAX_JEDIT);
+
+/**
+ * Saved subexpressions are:
+ * 1 = visibility
+ * 2 = modifiers (space separated)
+ * 3 = constructor name
+ * 4 = parameter list (comma separated)
+ * 5 = exception list (comma separated)
+ */
+final MessageFormat FIND_CONSTRUCTOR_REGEXP = new MessageFormat(
+	JAVADOC + "?" + VISIBILITY + "[[:space:]]+" + MODIFIER_LIST +
+	"({0})[[:space:]]*\\(" + PARAM_LIST +
+	"\\)[[:space:]]*(?:throws[[:space:]]+" + IDENTIFIER_LIST + ")?\\'{");
+
+final RE FIND_IMPORTS_REGEXP = new RE(
+	"(?:import[[:space:]]+" + NO_SAVE_IDENTIFIER + "[[:space:]]*;[[:space:]]*)*(?:import[[:space:]]+" + NO_SAVE_IDENTIFIER + "[[:space:]]*;)",
+	RE.REG_DOT_NEWLINE | RE.REG_MULTILINE, RESearchMatcher.RE_SYNTAX_JEDIT);
+
+final RE FIND_STATIC_INIT_REGEXP = new RE(
+	"static[[:space:]]*\\{",
+	RE.REG_DOT_NEWLINE | RE.REG_MULTILINE, RESearchMatcher.RE_SYNTAX_JEDIT);
+//}}}
+
+//{{{ findBlockEnd(REMatch) : int
+/**
+ * Finds the end of the method/class/constructor whose prototype is contained in
+ * match.
+ */
+int findBlockEnd(REMatch match)
+{
+	if(match.toString().endsWith(";"))
+	{
+		return match.getEndIndex();
+	}
+	else
+	{
+		int lineno = buffer.getLineOfOffset(match.getEndIndex());
+		int linestart = buffer.getLineStartOffset(lineno);
+		return TextUtilities.findMatchingBracket(buffer, lineno, match.getEndIndex() - linestart - 1) + 1;
+	}
+} //}}}
+
+//{{{ findClosingFold(String, int) : boolean
+/**
+ * Returns the index of any closing fold between pos and the next non-whitespace
+ * character.
+ */
+int findClosingFold(String text, int pos)
+{
+	int idx = text.indexOf(CLOSE_FOLD, pos);
+	if(idx > -1 && text.substring(pos, idx).trim().length() > 0)
+	{
+		idx = -1;
+	}
+	return idx;
+} //}}}
+
+//{{{ findOpeningFold(String, int) : boolean
+/**
+ * Returns the index of any opening fold that exists prior to pos with nothing
+ * between it and pos but whitespace.
+ */
+int findOpeningFold(String text, int pos)
+{
+	String preceding = text.substring(0, pos);
+	int idx = preceding.lastIndexOf("//\u007b\u007b\u007b");
+	int linebreak = preceding.indexOf("\n", idx);
+	if(idx > -1 && preceding.substring(linebreak, preceding.length()).trim().length() > 0)
+	{
+		idx = -1;
+	}
+	return idx;
+} //}}}
+
+//{{{ fold(RE) : void
+/**
+ * Uses the specified regular expression to find constructs to insert folds
+ * around and then inserts opening and closing folds.
+ */
+void fold(RE regexp)
+{
+	if(RE == null)
+	{
+		Macros.error(view, "regexp is null!");
+		return;
+	}
+
+	boolean isMethod = regexp == FIND_METHOD_REGEXP;
+	boolean isClass = regexp == FIND_CLASS_REGEXP;
+	boolean isStaticInit = regexp == FIND_STATIC_INIT_REGEXP;
+	boolean firstClass = true;
+
+	int startFrom = 0;
+	boolean done = false;
+	while(!done)
+	{
+		// have to reget as may have changed
+		String text = buffer.getText(0, buffer.getLength());
+		REMatch match = regexp.getMatch(text, startFrom);
+		if(match == null)
+		{
+			done = true;
+		}
+		else
+		{
+			// don't fold around any phantom matches from javadocs or comments
+			if(isInCommentOrLiteral(match.getStartIndex()))
+			{
+				startFrom = match.getEndIndex();
+			}
+			else
+			{
+				// skip over the main class
+				if(isClass && firstClass)
+				{
+					startFrom = match.getEndIndex();
+					firstClass = false;
+					continue;
+				}
+				else
+				{
+					// insert closing fold at the end of the method/class/constructor
+					int pos = findBlockEnd(match);
+					int idx = findClosingFold(text, pos);
+					if(idx == -1)
+					{
+						Log.log(Log.DEBUG, BeanShell.class, "inserting closing fold");
+						buffer.insert(pos, " " + CLOSE_FOLD);
+						// classes can contain other classes, but we can save time
+						// by skipping to the end of methods & constructors
+						if(isClass)
+						{
+							startFrom = match.getEndIndex();
+						}
+						else
+						{
+							startFrom = pos + CLOSE_FOLD.length() + 1;
+						}
+					}
+					else
+					{
+						Log.log(Log.DEBUG, BeanShell.class, "closing fold already exists");
+						if(isClass)
+						{
+							startFrom = match.getEndIndex();
+						}
+						else
+						{
+							startFrom = idx + CLOSE_FOLD.length() + 1;
+						}
+					}
+
+					// insert opening fold at start of line
+					pos = buffer.getLineStartOffset(buffer.getLineOfOffset(match.getStartIndex()));
+					StringBuffer buf = new StringBuffer();
+					if(isStaticInit)
+					{
+						buf.append(getStaticInitFoldText(match));
+					}
+					else if(isClass)
+					{
+						buf.append(getClassFoldText(match));
+					}
+					else if(isMethod)
+					{
+						buf.append(getMethodFoldText(match));
+					}
+					else
+					{
+						buf.append(getConstructorFoldText(match));
+					}
+					String foldText = buf.toString();
+
+					idx = findOpeningFold(text, pos);
+					if(idx == -1)
+					{
+						Log.log(Log.DEBUG, BeanShell.class, "inserting opening fold");
+						buffer.insert(pos, foldText);
+						startFrom += foldText.length();
+					}
+					else
+					{
+						// if updating, don't insert leading space or newline
+						String trimText = foldText.trim();
+						if(text.indexOf(trimText, idx) != idx)
+						{
+							Log.log(Log.DEBUG, BeanShell.class, "updating opening fold");
+							int length = text.indexOf("\n", idx) - idx;
+							buffer.remove(idx, length);
+							buffer.insert(idx, trimText);
+							startFrom += trimText.length() - length;
+						}
+						else
+						{
+							Log.log(Log.DEBUG, BeanShell.class, "opening fold already exists");
+						}
+					}
+				}
+			}
+		}
+	}
+} //}}}
+
+//{{{ foldImports() : void
+void foldImports()
+{
+	String text = buffer.getText(0, buffer.getLength());
+	REMatch match = FIND_IMPORTS_REGEXP.getMatch(text, 0);
+	if(match != null)
+	{
+		int end = findClosingFold(text, match.getEndIndex());
+		if(end == -1)
+		{
+			buffer.insert(match.getEndIndex(), "\n//\u007d\u007d\u007d");
+		}
+		int start = findOpeningFold(text, match.getStartIndex());
+		if(start == -1)
+		{
+			buffer.insert(match.getStartIndex(), "//\u007b\u007b\u007b imports\n");
+		}
+		else if(text.indexOf("//\u007b\u007b\u007b imports") != start)
+		{
+			int length = text.indexOf("\n", start) - start;
+			buffer.remove(start, length);
+			buffer.insert(start, "//\u007b\u007b\u007b imports");
+		}
+	}
+} //}}}
+
+//{{{ getClassFoldText(REMatch) : String
+String getClassFoldText(REMatch match)
+{
+	Object[] args = new Object[] {
+		getLeadingWhitespace(match.getStartIndex()),
+		getVisibilitySymbol(match.toString(1)),
+		match.toString(3),
+		match.toString(4),
+		getModifierSymbol(match.toString(2))
+	};
+	Log.log(Log.DEBUG, BeanShell.class, "Found " + args[2] + " " + args[3]);
+	String foldText = CLASS_FOLD_FORMAT.format(args);
+	return foldText;
+} //}}}
+
+//{{{ getClassNames() : String[]
+/**
+ * Returns an array of the class names (not fully-qualified) of all class &
+ * interfaces in the buffer.
+ */
+String[] getClassNames()
+{
+	String text = buffer.getText(0, buffer.getLength());
+	List classNames = new ArrayList();
+	REMatch match;
+	int startFrom = 0;
+	boolean done = false;
+	while(!done)
+	{
+		match = FIND_CLASS_REGEXP.getMatch(text, startFrom, 0);
+		if(match == null)
+		{
+			done = true;
+		}
+		else
+		{
+			if(!isInCommentOrLiteral(match.getStartIndex()))
+			{
+				classNames.add(match.toString(4));
+			}
+			startFrom = match.getEndIndex();
+		}
+	}
+	return (String[])classNames.toArray(new String[0]);
+} //}}}
+
+//{{{ getConstructorFoldText(REMatch) : String
+String getConstructorFoldText(REMatch match)
+{
+	Object[] args = new Object[] {
+		getLeadingWhitespace(match.getStartIndex()),
+		getVisibilitySymbol(match.toString(1)),
+		match.toString(3),
+		getParamTypes(match.toString(4)),
+		"<init>",
+		getModifierSymbol(match.toString(2))
+	};
+	Log.log(Log.DEBUG, BeanShell.class, "Found constructor " + args[2] + "(" + args[3] + ")");
+	String foldText = METHOD_FOLD_FORMAT.format(args);
+	return foldText;
+} //}}}
+
+//{{{ getLeadingWhitespace(String, int) : String
+/**
+ * Returns the leading whitespace on the line where the offset pos occurs.
+ */
+String getLeadingWhitespace(int pos)
+{
+	String line = buffer.getLineText(buffer.getLineOfOffset(pos));
+	StringBuffer buf = new StringBuffer();
+	for(int i = 0; i < line.length(); i++)
+	{
+		if(!Character.isWhitespace(line.charAt(i)))
+		{
+			break;
+		}
+		buf.append(line.charAt(i));
+	}
+	return buf.toString();
+} //}}}
+
+//{{{ getMethodFoldText(REMatch) : String
+String getMethodFoldText(REMatch match)
+{
+	Object[] args = new Object[] {
+		getLeadingWhitespace(match.getStartIndex()),
+		getVisibilitySymbol(match.toString(1)),
+		match.toString(4),
+		getParamTypes(match.toString(5)),
+		match.toString(3),
+		getModifierSymbol(match.toString(2))
+	};
+	Log.log(Log.DEBUG, BeanShell.class, "Found method " + args[2] + "(" + args[3] + ")");
+	String foldText = METHOD_FOLD_FORMAT.format(args);
+	return foldText;
+} //}}}
+
+//{{{ getModifierSymbol(String) : String
+String getModifierSymbol(String modifiers)
+{
+	if(modifiers.indexOf("static") >= 0)
+	{
+		return "_";
+	}
+	else if(modifiers.indexOf("abstract") >= 0)
+	{
+		return "*";
+	}
+	return "";
+} //}}}
+
+//{{{ getParamTypes(String) : String
+/**
+ * Turns a parameter list into a comma-separated type list.
+ */
+String getParamTypes(String paramList)
+{
+	if(paramList.trim().length() == 0)
+	{
+		return "";
+	}
+	StringBuffer buf = new StringBuffer();
+	StringTokenizer st = new StringTokenizer(paramList, ",");
+	while(st.hasMoreTokens())
+	{
+		String param = st.nextToken().trim();
+		for(int i = 0; i < param.length(); i++)
+		{
+			if(Character.isWhitespace(param.charAt(i)))
+			{
+				break;
+			}
+			buf.append(param.charAt(i));
+		}
+		if(st.hasMoreTokens())
+		{
+			buf.append(", ");
+		}
+	}
+	return buf.toString();
+} //}}}
+
+//{{{ getStaticInitFoldText(REMatch) : String
+String getStaticInitFoldText(REMatch match)
+{
+	Object[] args = new Object[] {
+		getLeadingWhitespace(match.getStartIndex())
+	};
+	Log.log(Log.DEBUG, BeanShell.class, "Found static initializer");
+	String foldText = STATIC_INIT_FOLD_FORMAT.format(args);
+	return foldText;
+}//}}}
+
+//{{{ getTokenAtOffset(int) : byte
+byte getTokenAtOffset(offset)
+{
+	int line = buffer.getLineOfOffset(offset);
+	offset -= buffer.getLineStartOffset(line);
+	DefaultTokenHandler tokens = new DefaultTokenHandler();
+	buffer.markTokens(line, tokens);
+	Token token = TextUtilities.getTokenAtOffset(tokens.getTokens(), offset);
+	return token.id;
+} //}}}
+
+//{{{ getVisibilitySymbol(String) : String
+/**
+ * Gets the UML symbol for a class member's visibility.
+ */
+String getVisibilitySymbol(String visibility)
+{
+	if("public".equals(visibility))
+	{
+		return "+";
+	}
+	else if("protected".equals(visibility))
+	{
+		return "#";
+	}
+	else if("private".equals(visibility))
+	{
+		return "-";
+	}
+	return "~";
+} //}}}
+
+//{{{ isInCommentOrLiteral(int) : boolean
+/**
+ * Returns true if pos is inside a comment or a literal.
+ */
+boolean isInCommentOrLiteral(int pos)
+{
+	byte token = getTokenAtOffset(pos);
+	if(token == Token.COMMENT3)
+	{
+		// if the token indicates a Javadoc, it's okay if we're at the start
+		return !buffer.getText(pos, 3).equals("/**");
+	}
+	else
+	{
+		return token == Token.COMMENT1 // in 4.2 a range comment
+			|| token == Token.COMMENT2 // in 4.2 a line comment
+			|| token == Token.LITERAL1; // in 4.2 a String or char literal
+	}
+} //}}}
+
+//{{{ isInterface() : boolean
+/**
+ * Returns true if the buffer contains an interface rather than a class
+ * definition.
+ */
+boolean isInterface()
+{
+	String text = buffer.getText(0, buffer.getLength());
+	boolean isInterface = false;
+	REMatch match;
+	int startFrom = 0;
+	boolean done = false;
+	while(!done)
+	{
+		match = FIND_CLASS_REGEXP.getMatch(text, startFrom, 0);
+		if(match == null)
+		{
+			Macros.error(view, "No class or interface declaration found.");
+			done = true;
+		}
+		else
+		{
+			if(!isInCommentOrLiteral(match.getStartIndex()))
+			{
+				isInterface = "interface".equals(match.toString(3));
+				done = true;
+			}
+			else
+			{
+				startFrom = match.getEndIndex();
+			}
+		}
+	}
+	return isInterface;
+} //}}}
+
+//{{{ main() : void
+/**
+ * Main execution method.
+ */
+void main()
+{
+	try
+	{
+		if(!buffer.getMode().getName().equals("java"))
+		{
+			Macros.error(view, "This is not a Java buffer.");
+			return;
+		}
+		if(!buffer.isEditable())
+		{
+			Macros.error(view, "Buffer is not editable.");
+			return;
+		}
+
+		foldImports();
+		fold(FIND_STATIC_INIT_REGEXP);
+		fold(FIND_CLASS_REGEXP);
+		String[] classNames = getClassNames();
+		for(int i = 0; i < classNames.length; i++)
+		{
+			fold(makeConstructorRE(classNames[i]));
+		}
+		fold(FIND_METHOD_REGEXP);
+
+		buffer.setProperty("folding", "explicit");
+		buffer.setProperty("collapseFolds", "1");
+	}
+	catch(Exception e)
+	{
+		Macros.error(view, e.toString());
+	}
+} //}}}
+
+//{{{ makeConstructorRE(String) : RE
+RE makeConstructorRE(String className)
+{
+	return new RE(FIND_CONSTRUCTOR_REGEXP.format(new Object[] {className}),
+		RE.REG_DOT_NEWLINE | RE.REG_MULTILINE, RESearchMatcher.RE_SYNTAX_JEDIT);
+} //}}}
+
+main();
+
+/*
+Macro index data (in DocBook format)
+
+	<listitem>
+		<para><filename>Fold_Java.bsh</filename></para>
+		<abstract>
+			<para>
+				Adds labelled explicit folds around the import statements, all
+				methods, constructors and inner classes in a Java buffer where
+				they do not already exist.
+				The opening fold includes a UML method description so that the
+				fold contents can be identified. The macro could be easily
+				modified to insert other text instead.
+			</para>
+		</abstract>
+	</listitem>
+*/
+// end Fold_Methods.bsh
+

@@ -1,0 +1,9 @@
+String mode = buffer.getMode().toString();
+if( mode.equals("php") )
+{
+    buffer.setMode("html");
+}
+else if (mode.equals("html") )
+{
+    buffer.setMode("php");
+}

@@ -1,0 +1,69 @@
+/*
+ * View_tree.bsh -- View jEdit's component heirarchy.
+ *
+ * @author Delvin Johnson (delvinj@gmail.com)
+ * @version 1.0 Sep 14, 2005
+ */
+
+import javax.swing.tree.*;
+import java.lang.reflect.*;
+
+
+void buildTree()
+{
+	DefaultMutableTreeNode root = new DefaultMutableTreeNode(
+		jEdit.getActiveView());
+	visit(root, jEdit.getActiveView());
+
+	JTree tree = new JTree(root);
+	JScrollPane sp = new JScrollPane(tree);
+	sp.setPreferredSize(new Dimension(480, 420));
+
+	JDialog dialog = new JDialog(jEdit.getActiveView(), "jEdit components", false);
+	dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+	JPanel panel = new JPanel(new BorderLayout());
+	panel.add(sp,BorderLayout.CENTER);
+	dialog.setContentPane(panel);
+	dialog.pack();
+	dialog.setLocationRelativeTo(null);
+	dialog.setVisible(true);
+}
+
+
+void visit(DefaultMutableTreeNode parent, Container comp)
+{
+	Component[] components = comp.getComponents();
+	for(int j=0; j < components.length; j++)
+	{
+		DefaultMutableTreeNode child =
+			new DefaultMutableTreeNode(getUserData(components[j]));
+		parent.add(child);
+		if(components[j] instanceof MenuElement)
+			visitMenu(child, ((MenuElement)components[j]).getSubElements());
+		else if(components[j] instanceof Container)
+			visit(child, (Container)components[j]);
+	}
+}
+
+void visitMenu(DefaultMutableTreeNode parent, MenuElement[] elements)
+{
+	for(int j=0; j < elements.length; j++)
+	{
+		DefaultMutableTreeNode child =
+			new DefaultMutableTreeNode(getUserData(elements[j]));
+		parent.add(child);
+		if(elements[j].getSubElements().length != 0)
+			visitMenu(child,elements[j].getSubElements());
+	}
+}
+
+String getUserData(Object obj)
+{
+	StringBuffer sb = new StringBuffer(
+		obj.getClass().getSimpleName());
+	if(obj instanceof AbstractButton)
+		sb.append(' ').append(((AbstractButton)obj).getText());
+	return sb.toString();
+}
+
+buildTree();

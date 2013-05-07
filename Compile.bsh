@@ -1,0 +1,105 @@
+/**
+Version 1.0
+
+Macro to find the appropriate build.xml file and runs ant with the target(s) you
+choose. Repeats last target unless you override it. Make compiling a breeze.
+Requries Ant and Console plugin.
+
+I use ant for build, clean, execute etc. All required paths are defined in the
+build.xml file. To get easy access to ant I use a macro like the one below. The
+idea behind the macro: You usually start a build/clean/execute run when a buffer
+belonging to the project is showing. So I just use the current path and check if
+build.xml exists, if not go up the path until a build.xml is found.  This way
+the correct build.xml is always found.
+
+To make life easy, the first time you run the macro (or when the ant binary file
+can't be found), you are prompted for the location.  This location is stored as
+a permanent jEdit property so you never have to deal with it again.  The last
+target you used is stored as a temporary property so you can just run this macro
+(I recommend binding it to F10 or other favorite key) and return to repeat the
+last ant target.  If you want to change targets (e.g., you finally successfully
+ran all your tests, now you want to create a jar), just run the macro and type
+your target and hit return.  All very simple.
+
+The Console plug in is required.
+
+Released under the GPL, version 2 or later.
+
+Jeffrey Hoyt (jchoyt@jedit.org)
+
+Credits:
+Gerd for thinking up this thing in the first place.  He came up with the simple
+but brilliant idea of looking for the build.xml file based on the currently open
+buffer.
+*/
+
+import java.io.IOException;
+import java.io.File;
+
+setAntPath()
+{
+    String ANT_LOC = Macros.input(view,
+        "Specify the location of your ant binary, then rerun the macro.  In\n" +
+        "order to be able to use this macro, you must be able to run Ant from the\n" +
+        "command line.  JAVA_HOME must be set.  If you specify the complete path\n" +
+        "to the ant binary here, and does not have to be in your path.  Example:\n" +
+        "/usr/local/ant/bin/ant.  NOTE: The Console Plugin is required for this\n" +
+        "macro to work.",
+        antPath);
+    jEdit.setProperty("compile.bsh.antBinary", ANT_LOC);
+}
+
+
+checkAntBinaryExists()
+{
+    if(antPath==null) return false;
+    File antFile = new File(antPath);
+    return antFile.exists();
+}
+
+
+boolean findBuildFile()
+{
+    path=MiscUtilities.getParentOfPath(buffer.getPath());
+    oldPath=null;
+    boolean ok=false;
+    int i=30;
+    while(path!=null && !path.equals(oldPath) && i>0)
+    {
+        File file=new File(path,"build.xml");
+        if(ok=file.exists()) break;
+        oldPath=path;
+        path=MiscUtilities.getParentOfPath(path);
+        i--;
+    }
+    return ok;
+}
+
+
+String path;
+String antPath=jEdit.getProperty("compile.bsh.antBinary");
+String lastTarget=jEdit.getProperty("compile.bsh.lastCompileTarget");
+if (!checkAntBinaryExists())
+{
+   setAntPath();
+   antPath=jEdit.getProperty("compile.bsh.antBinary");
+}
+
+
+if( findBuildFile() )
+{
+    TARGET=Macros.input(view, "What target do you want to run (empty for the default)?", lastTarget);
+    if(TARGET!=null)
+    {
+        jEdit.setTemporaryProperty("compile.bsh.lastCompileTarget", TARGET);
+        runCommandInConsole( view, "System", "cd " + path );
+        path=MiscUtilities.constructPath(path,"build.xml");
+        runCommandInConsole( view, "System", antPath + " -e -buildfile \"" + path + "\" " + TARGET /* + " -quiet"  */);
+    }
+}
+else
+{
+    Macros.error(view,"Can't find build.xml.  Make sure you have a buffer open that has a \n"+
+    "build file in the current or a parent directory.");
+}
+
